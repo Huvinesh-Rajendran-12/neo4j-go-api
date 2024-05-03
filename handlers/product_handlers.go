@@ -103,27 +103,23 @@ func EditProduct(c *gin.Context) {
 func GetRecommendations(c *gin.Context){
     var recquery types.RecommendationQuery
 	err := json.NewDecoder(c.Request.Body).Decode(&recquery)
-    fmt.Println(recquery)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
     isuserexist := utils.CheckIfUserExistsInNeo4J(recquery.UserId)
-    fmt.Println(isuserexist)
     if !isuserexist{
         data := utils.GetUserDataFromPg(recquery.UserId)
         result := utils.StoreUserData(data)
         fmt.Println(result)
     }
     queryVector := utils.GetEmbeddings(recquery.Query)
-    fmt.Print(queryVector)
 	ctx := context.Background()
 	driver, err := neo4j.NewDriverWithContext(os.Getenv("NEO4J_URI"), neo4j.BasicAuth(os.Getenv("NEO4J_USERNAME"), os.Getenv("NEO4J_PASSWORD"), ""))
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
-    fmt.Println(driver)
 	defer driver.Close(ctx)
 	session := driver.NewSession(ctx, neo4j.SessionConfig{DatabaseName: os.Getenv("NEO4J_DB")})
 	defer session.Close(ctx)
@@ -166,7 +162,6 @@ func GetProducts(c *gin.Context){
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
-    fmt.Println(driver)
 	defer driver.Close(ctx)
 	session := driver.NewSession(ctx, neo4j.SessionConfig{DatabaseName: os.Getenv("NEO4J_DB")})
 	defer session.Close(ctx)
@@ -192,9 +187,7 @@ func GetProducts(c *gin.Context){
 
 func StoreProductTransactions(c *gin.Context) {
 	var order types.Order
-    fmt.Println(c.Request.Body)
 	err := json.NewDecoder(c.Request.Body).Decode(&order)
-    fmt.Println(order)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
@@ -205,11 +198,9 @@ func StoreProductTransactions(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
-    fmt.Println(driver)
 	defer driver.Close(ctx)
 	session := driver.NewSession(ctx, neo4j.SessionConfig{DatabaseName: os.Getenv("NEO4J_DB")})
 	defer session.Close(ctx)
-    fmt.Println(session)
     query := `
       UNWIND $product_transactions AS pt
       MATCH(u:User {id: $user_id})
