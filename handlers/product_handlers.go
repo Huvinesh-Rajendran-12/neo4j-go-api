@@ -15,7 +15,6 @@ import (
 func AddProduct(c *gin.Context) {
     var product types.Product
 	err := json.NewDecoder(c.Request.Body).Decode(&product)
-    fmt.Println(product)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
@@ -26,7 +25,6 @@ func AddProduct(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
-    fmt.Println(driver)
 	defer driver.Close(ctx)
 	session := driver.NewSession(ctx, neo4j.SessionConfig{DatabaseName: os.Getenv("NEO4J_DB")})
 	defer session.Close(ctx)
@@ -59,7 +57,6 @@ func AddProduct(c *gin.Context) {
 func EditProduct(c *gin.Context) {
     var product types.Product
 	err := json.NewDecoder(c.Request.Body).Decode(&product)
-    fmt.Println(product)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
@@ -70,7 +67,6 @@ func EditProduct(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
-    fmt.Println(driver)
 	defer driver.Close(ctx)
 	session := driver.NewSession(ctx, neo4j.SessionConfig{DatabaseName: os.Getenv("NEO4J_DB")})
 	defer session.Close(ctx)

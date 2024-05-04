@@ -98,14 +98,13 @@ func GetUserDataFromPg(id int) (map[string]interface{}) {
 		fmt.Fprintf(os.Stderr, "User QueryRow failed: %v\n", err)
 		os.Exit(1)
 	}
-    allergy_query := "select name from allergies where user_id=$1"
+    allergy_query := "select COALESCE(name, 'Unknown') from allergies where user_id=$1"
     allergy_err := conn.QueryRow(context.Background(),allergy_query, id).Scan(&allergy)
     if allergy_err != nil {
         if allergy_err == sql.ErrNoRows {
             allergy = ""
         } else {
-            fmt.Fprintf(os.Stderr, "Allergy QueryRow failed: %v\n", allergy_err)
-            os.Exit(1)
+            allergy = ""
         }
     }
     age := int(time.Since(date_of_birth).Hours() / 24 / 365)
@@ -167,7 +166,6 @@ func StoreUserData(userData map[string]interface{}) []map[string]interface{} {
 	defer driver.Close(ctx)
 	session := driver.NewSession(ctx, neo4j.SessionConfig{DatabaseName: os.Getenv("NEO4J_DB")})
 	defer session.Close(ctx)
-    fmt.Println(userData)
     query := 
     `
     CREATE(u:User {id: $id, name: $name, age: $age, email: $email, latitude: $latitude, longitude: $longitude, 
@@ -191,7 +189,6 @@ func StoreUserData(userData map[string]interface{}) []map[string]interface{} {
 func GetEmbeddings(text string) []float64 {
     embeddings_api := os.Getenv("EMBEDDINGS_API")    
     url := embeddings_api+"?"+"text="+url.QueryEscape(text)
-    fmt.Println(url)
     resp, err := http.Get(url)
     if err != nil {
         fmt.Println("Error creating request:", err)
@@ -205,6 +202,5 @@ func GetEmbeddings(text string) []float64 {
         fmt.Println("Error decoding response:", err)
         os.Exit(1)
     }
-    fmt.Println(len(embeddingsresp.Embeddings))
     return embeddingsresp.Embeddings
 }
