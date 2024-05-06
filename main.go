@@ -15,6 +15,7 @@ func main() {
 	r := gin.Default()
     api := r.Group("/api")
     api.POST("/generate/token", handlers.CreateAPIToken)
+    api.GET("/check/token/expiration", handlers.CheckAPITokenExpirations)
     v1 := api.Group("/v1")
     v1.Use(middleware.AuthenticationMiddleware())
 	v1.POST("/user/update", handlers.UpdateUserData)

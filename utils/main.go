@@ -18,15 +18,22 @@ import (
 
 
 // GenerateToken generates a JWT token with the user ID as part of the claims
-func GenerateToken(userID int) (string, error) {
+func GenerateToken(secretID string, secretKey string) (map[string]interface{}, error) {
     secretkeystr := os.Getenv("SECRET_KEY")
-    var secretKey = []byte(secretkeystr)
+    var secretkeybytes= []byte(secretkeystr)
 	claims := jwt.MapClaims{}
-	claims["user_id"] = userID
-	claims["exp"] = time.Now().Add(time.Hour * 250).Unix() // Token valid for 250 hour
+	claims["secret_id"] = secretID
+    claims["secret_key"] = secretKey
+    expTime := time.Now().Add(time.Hour * 1).Unix()
+	claims["expiryTime"] = expTime // Token valid for 1 hour
 
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
-	return token.SignedString(secretKey)
+    signedString, err := token.SignedString(secretkeybytes)
+    data := map[string]interface{}{
+        "token": signedString,
+        "expTime": expTime,
+    }
+	return data, err
 }
 
 // VerifyToken verifies a token JWT validate 
@@ -51,6 +58,31 @@ func VerifyToken(tokenString string) (jwt.MapClaims, error) {
 
 	return claims, nil
 }
+
+func IsTokenExpired(tokenString string) bool {
+    secretkeystr := os.Getenv("SECRET_KEY")
+    secretKey := []byte(secretkeystr)
+	token, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
+        if token.Method.Alg() != jwt.SigningMethodHS256.Alg() {
+            return nil, fmt.Errorf("Invalid signing method")
+        }
+        return secretKey, nil
+	})
+
+	if err != nil {
+		return false
+	}
+
+	claims, ok := token.Claims.(jwt.MapClaims)
+	if !ok || !token.Valid {
+        return false
+	}
+    expiryTime := claims["expiryTime"].(float64)
+    expiryTimeUnix := int64(expiryTime)
+    expiryTimeT := time.Unix(expiryTimeUnix, 0)
+    return expiryTimeT.After(time.Now())
+}
+
 
 // parseDate parses the date of time module into year, month, day
 func ParseDate(date time.Time) (int, int, int) {

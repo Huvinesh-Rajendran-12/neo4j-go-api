@@ -34,7 +34,7 @@ func AuthenticationMiddleware() gin.HandlerFunc {
             return
         }
 
-        c.Set("user_id", claims["user_id"])
+        c.Set("secret_id", claims["secret_id"])
         c.Next()
     }
 }

@@ -1,6 +1,6 @@
 GET http://0.0.0.0:8080/api/v1/product/recommendations
 Content-Type: application/json
-Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleHAiOjE3MTU3MzI4NDMsInVzZXJfaWQiOjB9.UTTjRxjchLfZ6SM1pkDBGwD3IVZRa6o1tKik6qSC0iU
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleHBpcnlUaW1lIjoxNzE0OTg2MzgyLCJzZWNyZXRfaWQiOiJLbHd5N2xicmFFU1FiNGdxS085MDVKM0VadVpzQVBjSiIsInNlY3JldF9rZXkiOiJsVGlUMkVWWkRQZzY5U1hIcGlVMjlraVkzckdmdlRLMCJ9.4ENfOAtz1xTBPp5wn3FRUTGHZxS6KvIY9ayvQDyYqu8
 {
     "user_id": 420,
     "query": "sore throat",
