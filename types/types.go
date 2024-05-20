@@ -35,6 +35,7 @@ type Product struct {
 type RecommendationQuery struct {
     UserId int `json:"user_id"`
     Query string `json:"query"`
+    AffiliationID int `json:"affiliation_id"`
     Limit int `json:"limit"`
 }
 

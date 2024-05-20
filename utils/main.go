@@ -14,6 +14,8 @@ import (
 	"github.com/dgrijalva/jwt-go"
 	"github.com/jackc/pgx/v5"
 	"github.com/neo4j/neo4j-go-driver/v5/neo4j"
+    "crypto/rand"
+    "encoding/hex"
 )
 
 
@@ -235,4 +237,12 @@ func GetEmbeddings(text string) []float64 {
         os.Exit(1)
     }
     return embeddingsresp.Embeddings
+}
+
+func GenerateRandomHex(n int) (string, error) {
+    bytes := make([]byte, n)
+    if _, err := rand.Read(bytes); err != nil {
+        return "", err
+    }
+    return hex.EncodeToString(bytes), nil
 }

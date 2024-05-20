@@ -4,12 +4,14 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"log"
 	"net/http"
 	"os"
+
 	"github.com/Huvinesh-Rajendran-12/neo4j-go-api/types"
+	"github.com/Huvinesh-Rajendran-12/neo4j-go-api/utils"
 	"github.com/gin-gonic/gin"
 	"github.com/neo4j/neo4j-go-driver/v5/neo4j"
-    "github.com/Huvinesh-Rajendran-12/neo4j-go-api/utils"
 )
 
 func AddProduct(c *gin.Context) {
@@ -126,17 +128,19 @@ func GetRecommendations(c *gin.Context){
     WHERE score > 0.65
     MATCH (product)-[:HAS_ALLERGY]->(a:Allergens),
           (product)-[:GENDER]->(g:Gender),
+          (product)-[:IS_AFFILIATED_WITH]->(af:Affiliations),
           (u:User {id: $userId})-[:HAS_ALLERGY]->(userAllergen:Allergens),
           (u)-[:GENDER]->(userGender:Gender)
     WHERE (a.type = "Not-Known" OR a.type <> userAllergen)
           AND (g.type = userGender  OR g.type = "Unisex")
+          AND af.id = $affiliationID
     RETURN product.name AS name, product.description AS description, product.price AS price, score
     `
     params := map[string]interface{}{
         "limit": recquery.Limit,
         "queryVector": queryVector,
         "userId": recquery.UserId,
-
+        "affiliationID": recquery.AffiliationID,
     }
 	results, _ := session.ExecuteWrite(ctx,
 		func(tx neo4j.ManagedTransaction) (any, error) {
@@ -148,12 +152,13 @@ func GetRecommendations(c *gin.Context){
     for _, p := range results.([]*neo4j.Record) {
         recommendations = append(recommendations, p.AsMap())
     }
-	c.JSON(http.StatusOK, gin.H{"recommendations": recommendations})
+    c.JSON(http.StatusOK, gin.H{"recommendations": recommendations})
 }
 
 func GetProducts(c *gin.Context){
 	ctx := context.Background()
 	driver, err := neo4j.NewDriverWithContext(os.Getenv("NEO4J_URI"), neo4j.BasicAuth(os.Getenv("NEO4J_USERNAME"), os.Getenv("NEO4J_PASSWORD"), ""))
+    log.Println(driver)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -190,6 +195,7 @@ func StoreProductTransactions(c *gin.Context) {
 	}
 	ctx := context.Background()
 	driver, err := neo4j.NewDriverWithContext(os.Getenv("NEO4J_URI"), neo4j.BasicAuth(os.Getenv("NEO4J_USERNAME"), os.Getenv("NEO4J_PASSWORD"), ""))
+    log.Println(driver)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -197,13 +203,15 @@ func StoreProductTransactions(c *gin.Context) {
 	defer driver.Close(ctx)
 	session := driver.NewSession(ctx, neo4j.SessionConfig{DatabaseName: os.Getenv("NEO4J_DB")})
 	defer session.Close(ctx)
-    query := `
-      UNWIND $product_transactions AS pt
+    query := 
+    `
+    UNWIND $product_transactions AS pt
       MATCH(u:User {id: $user_id})
       MATCH(p:Product {id: pt.product_id})
       MERGE (u)-[t:TRANSACTED]->(p)
       set t.order_id = $order_id, t.quantity = pt.quantity 
-      RETURN p.id, t.order_id, t.quantity,  u.id`
+      RETURN p.id, t.order_id, t.quantity,  u.id
+    `
 	params := map[string]interface{}{
         "order_id": order.ID,
         "user_id": order.UserID,
@@ -220,4 +228,33 @@ func StoreProductTransactions(c *gin.Context) {
         productTransactions = append(productTransactions, p.AsMap())
     }
 	c.JSON(http.StatusOK, gin.H{"results": productTransactions})
+}
+
+func GetAffiliations(c *gin.Context) {
+	ctx := context.Background()
+	driver, err := neo4j.NewDriverWithContext(os.Getenv("NEO4J_URI"), neo4j.BasicAuth(os.Getenv("NEO4J_USERNAME"), os.Getenv("NEO4J_PASSWORD"), ""))
+    log.Println(driver)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	defer driver.Close(ctx)
+	session := driver.NewSession(ctx, neo4j.SessionConfig{DatabaseName: os.Getenv("NEO4J_DB")})
+	defer session.Close(ctx)
+    query := 
+    `
+    MATCH(af:Affiliations) return distinct af.id as id, af.name as name;
+    `
+    params := map[string]any{}
+	results, _ := session.ExecuteWrite(ctx,
+		func(tx neo4j.ManagedTransaction) (any, error) {
+			result, _ := tx.Run(ctx, query, params)
+			records, _ := result.Collect(ctx)
+			return records, nil
+		})
+    var affiliations []map[string]any
+    for _, p := range results.([]*neo4j.Record) {
+        affiliations = append(affiliations, p.AsMap())
+    }
+	c.JSON(http.StatusOK, gin.H{"affiliations": affiliations})
 }
