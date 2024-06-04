@@ -42,3 +42,14 @@ type RecommendationQuery struct {
 type EmbeddingResp struct {
     Embeddings []float64 `json:"embeddings"`
 }
+
+type WooCommerceProduct struct {
+    ID int `json:"id"`
+    Name string `json:"name"`
+    Slug string `json:"slug"`
+    Description string `json:"description"`
+    ShortDescription string `json:"short_description"`
+    Image []struct {
+        Src string `json:"src"`
+    } `json:"images"`
+}
