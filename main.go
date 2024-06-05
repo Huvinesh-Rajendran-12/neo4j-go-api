@@ -30,5 +30,8 @@ func main() {
 	v1.POST("/product/transactions/store", handlers.StoreProductTransactions)
     v1.GET("/product/recommendations", handlers.GetRecommendations)
     v1.GET("/product/get/all", handlers.GetProducts)
+    v2 := api.Group("/v2")
+    v2.Use(middleware.AuthenticationMiddleware())
+    v2.GET("/product/recommendations", handlers.GetRecommendationsWooCommerce)
     r.Run(":8080")
 }

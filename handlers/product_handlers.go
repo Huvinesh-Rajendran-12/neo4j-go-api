@@ -505,3 +505,52 @@ func HandleProductDeleteWebhook(c *gin.Context) {
     // Return success response
     c.JSON(http.StatusOK, gin.H{"message": fmt.Sprintf("Product with ID %d deleted", payload.ID)})
 }
+
+func GetRecommendationsWooCommerce(c *gin.Context) {
+    var recquery types.RecommendationQuery
+	err := json.NewDecoder(c.Request.Body).Decode(&recquery)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+    isuserexist := utils.CheckIfUserExistsInNeo4J(recquery.UserId)
+    if !isuserexist{
+        data := utils.GetUserDataFromPg(recquery.UserId)
+        result := utils.StoreUserData(data)
+        fmt.Println(result)
+    }
+    queryVector := utils.GetEmbeddings(recquery.Query)
+	ctx := context.Background()
+	driver, err := neo4j.NewDriverWithContext(os.Getenv("NEO4J_URI"), neo4j.BasicAuth(os.Getenv("NEO4J_USERNAME"), os.Getenv("NEO4J_PASSWORD"), ""))
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	defer driver.Close(ctx)
+	session := driver.NewSession(ctx, neo4j.SessionConfig{DatabaseName: os.Getenv("NEO4J_DB")})
+	defer session.Close(ctx)
+    query := 
+    `
+    CALL db.index.vector.queryNodes('product_text_embeddings', $limit, $queryVector)
+    YIELD node AS product, score
+    WHERE score > 0.65
+    RETURN product.id as product_id, score
+    `
+    params := map[string]interface{}{
+        "limit": recquery.Limit,
+        "queryVector": queryVector,
+        "userId": recquery.UserId,
+        "affiliationID": recquery.AffiliationID,
+    }
+	results, _ := session.ExecuteWrite(ctx,
+		func(tx neo4j.ManagedTransaction) (any, error) {
+			result, _ := tx.Run(ctx, query, params)
+			records, _ := result.Collect(ctx)
+			return records, nil
+		})
+    var recommendations  []map[string]any
+    for _, p := range results.([]*neo4j.Record) {
+        recommendations = append(recommendations, p.AsMap())
+    }
+    c.JSON(http.StatusOK, gin.H{"recommendations": recommendations})
+}
