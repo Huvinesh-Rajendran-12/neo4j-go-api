@@ -13,7 +13,7 @@ func main() {
 		panic("Error loading .env file")
 	}
 	r := gin.Default()
-    r.SetTrustedProxies([]string{"47.254.238.67", "127.0.0.1"})
+    r.SetTrustedProxies([]string{"47.254.238.67", "127.0.0.1", "202.184.216.86"})
     api := r.Group("/api")
     api.POST("/authenticate", handlers.AdminAuthentication)
     api.POST("/generate/token", handlers.CreateAPIToken)
