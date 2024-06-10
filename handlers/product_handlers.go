@@ -507,18 +507,18 @@ func HandleProductDeleteWebhook(c *gin.Context) {
 }
 
 func GetRecommendationsWooCommerce(c *gin.Context) {
-    var recquery types.RecommendationQuery
+    var recquery types.WooCommerceRecommendationQuery
 	err := json.NewDecoder(c.Request.Body).Decode(&recquery)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
-    isuserexist := utils.CheckIfUserExistsInNeo4J(recquery.UserId)
-    if !isuserexist{
-        data := utils.GetUserDataFromPg(recquery.UserId)
-        result := utils.StoreUserData(data)
-        fmt.Println(result)
-    }
+    // isuserexist := utils.CheckIfUserExistsInNeo4J(recquery.UserId)
+    // if !isuserexist{
+      //  data := utils.GetUserDataFromPg(recquery.UserId)
+       //  result := utils.StoreUserData(data)
+        // fmt.Println(result)
+    // }
     queryVector := utils.GetEmbeddings(recquery.Query)
 	ctx := context.Background()
 	driver, err := neo4j.NewDriverWithContext(os.Getenv("NEO4J_URI"), neo4j.BasicAuth(os.Getenv("NEO4J_USERNAME"), os.Getenv("NEO4J_PASSWORD"), ""))
@@ -539,8 +539,6 @@ func GetRecommendationsWooCommerce(c *gin.Context) {
     params := map[string]interface{}{
         "limit": recquery.Limit,
         "queryVector": queryVector,
-        "userId": recquery.UserId,
-        "affiliationID": recquery.AffiliationID,
     }
 	results, _ := session.ExecuteWrite(ctx,
 		func(tx neo4j.ManagedTransaction) (any, error) {

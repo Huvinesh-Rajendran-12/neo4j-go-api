@@ -53,3 +53,8 @@ type WooCommerceProduct struct {
         Src string `json:"src"`
     } `json:"images"`
 }
+
+type WooCommerceRecommendationQuery struct {
+    Limit int `json:"limit"`
+    Query string `json:"query"`
+}
