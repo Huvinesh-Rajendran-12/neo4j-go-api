@@ -105,9 +105,9 @@ func GetRecommendations(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
-	isuserexist := utils.CheckIfUserExistsInNeo4J(recquery.UserId)
+	isuserexist := utils.CheckIfUserExistsInNeo4J(recquery.UserIc)
 	if !isuserexist {
-		data := utils.GetUserDataFromPg(recquery.UserId)
+		data := utils.GetUserDataFromPgV2(recquery.UserIc)
 		result := utils.StoreUserData(data)
 		fmt.Println(result)
 	}
@@ -139,7 +139,7 @@ func GetRecommendations(c *gin.Context) {
 	params := map[string]interface{}{
 		"limit":         recquery.Limit,
 		"queryVector":   queryVector,
-		"userId":        recquery.UserId,
+		"userId":        recquery.UserIc,
 		"affiliationID": recquery.AffiliationID,
 	}
 	results, _ := session.ExecuteWrite(ctx,
