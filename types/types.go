@@ -55,6 +55,11 @@ type WooCommerceProduct struct {
 }
 
 type WooCommerceRecommendationQuery struct {
-	Limit int    `json:"limit"`
-	Query string `json:"query"`
+	Limit    int    `json:"limit"`
+	Query    string `json:"query"`
+	UserData struct {
+		ID    int    `json:"id"`
+		IC    string `json:"ic_passport"`
+		Email string `json:"email"`
+	} `json:"user_data"`
 }

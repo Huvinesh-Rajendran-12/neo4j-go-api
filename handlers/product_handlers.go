@@ -7,6 +7,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"strings"
 
 	"github.com/Huvinesh-Rajendran-12/neo4j-go-api/types"
 	"github.com/Huvinesh-Rajendran-12/neo4j-go-api/utils"
@@ -508,6 +509,7 @@ func HandleProductDeleteWebhook(c *gin.Context) {
 func GetRecommendationsWooCommerce(c *gin.Context) {
 	var recquery types.WooCommerceRecommendationQuery
 	err := json.NewDecoder(c.Request.Body).Decode(&recquery)
+	fmt.Println(recquery)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
@@ -518,7 +520,16 @@ func GetRecommendationsWooCommerce(c *gin.Context) {
 	//  result := utils.StoreUserData(data)
 	// fmt.Println(result)
 	// }
-	queryVector := utils.GetEmbeddings(recquery.Query)
+	diagnosis, err := utils.GetUserDiagnosisFromIc(recquery.UserData.IC)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	combinedDiagnosis := ""
+	if len(diagnosis) > 0 {
+		combinedDiagnosis += " " + strings.Join(diagnosis, " ")
+	}
+	queryVector := utils.GetEmbeddings(combinedDiagnosis)
 	ctx := context.Background()
 	driver, err := neo4j.NewDriverWithContext(os.Getenv("NEO4J_URI"), neo4j.BasicAuth(os.Getenv("NEO4J_USERNAME"), os.Getenv("NEO4J_PASSWORD"), ""))
 	if err != nil {

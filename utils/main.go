@@ -211,6 +211,78 @@ func GetUserDataFromPgV2(email string) map[string]interface{} {
 	return data
 }
 
+func GetUserDiagnosisFromIc(ic_passport string) ([]string, error) {
+	host := os.Getenv("POSTGRES_HOST")
+	password := os.Getenv("POSTGRES_PASSWORD")
+	username := os.Getenv("POSTGRES_USER")
+	port := os.Getenv("POSTGRES_PORT")
+	database := os.Getenv("POSTGRES_DB")
+	db_url := fmt.Sprintf("postgres://%s:%s@%s:%s/%s", username, password, host, port, database)
+	conn, err := pgx.Connect(context.Background(), db_url)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Unable to connect to database: %v\n", err)
+		os.Exit(1)
+	}
+	defer conn.Close(context.Background())
+	query := `SELECT c.diagnosis
+  FROM consultations c
+  JOIN users u ON c.user_id = u.id
+  WHERE u.ic = $1
+  ORDER BY c.created_at DESC LIMIT 3;`
+	rows, err := conn.Query(context.Background(), query, ic_passport)
+	if err != nil {
+		return nil, fmt.Errorf("query execution failed: %v", err)
+	}
+	defer rows.Close()
+
+	var diagnoses []string
+	for rows.Next() {
+		var diagnosis string
+		if err := rows.Scan(&diagnosis); err != nil {
+			return nil, fmt.Errorf("row scan failed: %v", err)
+		}
+		diagnoses = append(diagnoses, diagnosis)
+	}
+
+	return diagnoses, nil
+}
+
+func GetUserDiagnosisFromEmail(email string) ([]string, error) {
+	host := os.Getenv("POSTGRES_HOST")
+	password := os.Getenv("POSTGRES_PASSWORD")
+	username := os.Getenv("POSTGRES_USER")
+	port := os.Getenv("POSTGRES_PORT")
+	database := os.Getenv("POSTGRES_DB")
+	db_url := fmt.Sprintf("postgres://%s:%s@%s:%s/%s", username, password, host, port, database)
+	conn, err := pgx.Connect(context.Background(), db_url)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Unable to connect to database: %v\n", err)
+		os.Exit(1)
+	}
+	defer conn.Close(context.Background())
+	query := `SELECT c.diagnosis
+  FROM consultations c
+  JOIN users u ON c.user_id = u.id
+  WHERE u.email = $1
+  ORDER BY c.created_at DESC LIMIT 3;`
+	rows, err := conn.Query(context.Background(), query, email)
+	if err != nil {
+		return nil, fmt.Errorf("query execution failed: %v", err)
+	}
+	defer rows.Close()
+
+	var diagnoses []string
+	for rows.Next() {
+		var diagnosis string
+		if err := rows.Scan(&diagnosis); err != nil {
+			return nil, fmt.Errorf("row scan failed: %v", err)
+		}
+		diagnoses = append(diagnoses, diagnosis)
+	}
+
+	return diagnoses, nil
+}
+
 // checkIfUserExistsInNeo4J return true if user exists in graph database
 func CheckIfUserExistsInNeo4J(ic_passport string) bool {
 	ctx := context.Background()
