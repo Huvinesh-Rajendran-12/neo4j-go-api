@@ -508,6 +508,7 @@ func HandleProductDeleteWebhook(c *gin.Context) {
 
 func GetRecommendationsWooCommerce(c *gin.Context) {
 	var recquery types.WooCommerceRecommendationQuery
+	fmt.Println(c.Request.Body)
 	err := json.NewDecoder(c.Request.Body).Decode(&recquery)
 	fmt.Println(recquery)
 	if err != nil {
