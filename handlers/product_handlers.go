@@ -4,15 +4,15 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"log"
-	"net/http"
-	"os"
-	"strings"
-
 	"github.com/Huvinesh-Rajendran-12/neo4j-go-api/types"
 	"github.com/Huvinesh-Rajendran-12/neo4j-go-api/utils"
 	"github.com/gin-gonic/gin"
 	"github.com/neo4j/neo4j-go-driver/v5/neo4j"
+	"log"
+	"net/http"
+	"net/url"
+	"os"
+	"strings"
 )
 
 func AddProduct(c *gin.Context) {
@@ -264,8 +264,21 @@ func StoreWooCommerceProducts(c *gin.Context) {
 	ctx := context.Background()
 
 	// 1. Fetch products from WooCommerce API
-	apiUrl := "https://ecomm.teleme.co/recommendation/wp-json/wc/v3/products?consumer_key=ck_72e1f247b373d3f4e677c357f6f5068a5810d683&consumer_secret=cs_5ce5c9e6c592b9852ec8be66ac3f31d658966372"
-	response, err := http.Get(apiUrl)
+	baseUrl := os.Getenv("WOOCOMMERCE_PRODUCT_API")
+	consumerKey := os.Getenv("WOOCOMMERCE_CONSUMER_KEY")
+	consumerSecret := os.Getenv("WOOCOMMERCE_CONSUMER_SECRET")
+	apiUrl, err := url.Parse(baseUrl)
+	if err != nil {
+		fmt.Printf("Error parsing base URL: %v\n", err)
+		return
+	}
+	query := apiUrl.Query()
+	query.Set("consumer_key", consumerKey)
+	query.Set("consumer_secret", consumerSecret)
+	apiUrl.RawQuery = query.Encode()
+
+	finalApiUrl := apiUrl.String()
+	response, err := http.Get(finalApiUrl)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch products from WooCommerce API: " + err.Error()}) // Include error details
 		return
@@ -545,7 +558,7 @@ func GetRecommendationsWooCommerce(c *gin.Context) {
     CALL db.index.vector.queryNodes('product_text_embeddings', $limit, $queryVector)
     YIELD node AS product, score
     WHERE score > 0.65
-    RETURN product.id as product_id, score
+    RETURN product.id as product_id, product.name as product_name, score
     `
 	params := map[string]interface{}{
 		"limit":       recquery.Limit,
