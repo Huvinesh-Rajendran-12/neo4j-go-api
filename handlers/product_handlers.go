@@ -275,6 +275,7 @@ func StoreWooCommerceProducts(c *gin.Context) {
 	query := apiUrl.Query()
 	query.Set("consumer_key", consumerKey)
 	query.Set("consumer_secret", consumerSecret)
+	query.Set("per_page", "100")
 	apiUrl.RawQuery = query.Encode()
 
 	finalApiUrl := apiUrl.String()
