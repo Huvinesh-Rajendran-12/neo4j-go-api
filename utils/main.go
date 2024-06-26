@@ -227,7 +227,7 @@ func GetUserDiagnosisFromIc(ic_passport string) ([]string, error) {
 	query := `SELECT c.diagnosis
   FROM consultations c
   JOIN users u ON c.user_id = u.id
-  WHERE u.ic = $1
+  WHERE u.ic = $1 AND u.ic != ''
   ORDER BY c.created_at DESC LIMIT 3;`
 	rows, err := conn.Query(context.Background(), query, ic_passport)
 	if err != nil {
