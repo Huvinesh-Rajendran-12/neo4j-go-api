@@ -4,15 +4,16 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"github.com/Huvinesh-Rajendran-12/neo4j-go-api/types"
-	"github.com/Huvinesh-Rajendran-12/neo4j-go-api/utils"
-	"github.com/gin-gonic/gin"
-	"github.com/neo4j/neo4j-go-driver/v5/neo4j"
 	"log"
 	"net/http"
 	"net/url"
 	"os"
 	"strings"
+
+	"github.com/Huvinesh-Rajendran-12/neo4j-go-api/types"
+	"github.com/Huvinesh-Rajendran-12/neo4j-go-api/utils"
+	"github.com/gin-gonic/gin"
+	"github.com/neo4j/neo4j-go-driver/v5/neo4j"
 )
 
 func AddProduct(c *gin.Context) {
