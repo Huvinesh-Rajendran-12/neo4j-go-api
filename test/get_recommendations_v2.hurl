@@ -4,9 +4,11 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleHBpcnlUaW1lIjoxN
 {
     "query": "",
     "limit": 10,
+    "score": 0.65,
+    "n_diagnosis": 1,
     "user_data": {
-        "id": 1,
-        "ic_passport": "123456789",
+        "id": 3,
+        "ic_passport": "990906106529",
         "email": "default@gmail.com"
       }
 }

@@ -4,15 +4,16 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"github.com/Huvinesh-Rajendran-12/neo4j-go-api/types"
-	"github.com/Huvinesh-Rajendran-12/neo4j-go-api/utils"
-	"github.com/gin-gonic/gin"
-	"github.com/neo4j/neo4j-go-driver/v5/neo4j"
 	"log"
 	"net/http"
 	"net/url"
 	"os"
 	"strings"
+
+	"github.com/Huvinesh-Rajendran-12/neo4j-go-api/types"
+	"github.com/Huvinesh-Rajendran-12/neo4j-go-api/utils"
+	"github.com/gin-gonic/gin"
+	"github.com/neo4j/neo4j-go-driver/v5/neo4j"
 )
 
 func AddProduct(c *gin.Context) {
@@ -168,7 +169,7 @@ func GetProducts(c *gin.Context) {
 	session := driver.NewSession(ctx, neo4j.SessionConfig{DatabaseName: os.Getenv("NEO4J_DB")})
 	defer session.Close(ctx)
 	query :=
-		`                
+		`
     MATCH (p:Product), (p)-->(a:Allergens), (p)-->(g:Gender)
     RETURN distinct p.id as id, p.name as name,p.description as description,p.price as
     price, a.type as allergens, g.type as gender order by p.id DESC
@@ -210,7 +211,7 @@ func StoreProductTransactions(c *gin.Context) {
       MATCH(u:User {id: $user_id})
       MATCH(p:Product {id: pt.product_id})
       MERGE (u)-[t:TRANSACTED]->(p)
-      set t.order_id = $order_id, t.quantity = pt.quantity 
+      set t.order_id = $order_id, t.quantity = pt.quantity
       RETURN p.id, t.order_id, t.quantity,  u.id
     `
 	params := map[string]interface{}{
@@ -318,8 +319,8 @@ func StoreWooCommerceProducts(c *gin.Context) {
 		// Construct query with individual product parameters
 		query := `
             CREATE(p:Product {
-                id: $id, 
-                name: $name, 
+                id: $id,
+                name: $name,
                 description: $description,
                 short_description: $short_description,
                 textEmbedding: $embeddings
@@ -535,7 +536,8 @@ func GetRecommendationsWooCommerce(c *gin.Context) {
 	//  result := utils.StoreUserData(data)
 	// fmt.Println(result)
 	// }
-	diagnosis, err := utils.GetUserDiagnosisFromIc(recquery.UserData.IC)
+	diagnosis, err := utils.GetUserDiagnosisFromIc(recquery.UserData.IC, recquery.NDiagnosis)
+	fmt.Println("Diagnosis", diagnosis)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -544,9 +546,15 @@ func GetRecommendationsWooCommerce(c *gin.Context) {
 	if len(diagnosis) > 0 {
 		combinedDiagnosis += " " + strings.Join(diagnosis, " ")
 	}
+	fmt.Println(combinedDiagnosis)
 	queryVector := utils.GetEmbeddings(combinedDiagnosis)
+	fmt.Println(queryVector)
 	ctx := context.Background()
-	driver, err := neo4j.NewDriverWithContext(os.Getenv("NEO4J_URI"), neo4j.BasicAuth(os.Getenv("NEO4J_USERNAME"), os.Getenv("NEO4J_PASSWORD"), ""))
+	driver, err := neo4j.NewDriverWithContext(
+		os.Getenv("NEO4J_URI"),
+		neo4j.BasicAuth(os.Getenv("NEO4J_USERNAME"),
+			os.Getenv("NEO4J_PASSWORD"), "",
+		))
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -558,12 +566,13 @@ func GetRecommendationsWooCommerce(c *gin.Context) {
 		`
     CALL db.index.vector.queryNodes('product_text_embeddings', $limit, $queryVector)
     YIELD node AS product, score
-    WHERE score > 0.65
+    WHERE score > $score_threshold
     RETURN product.id as product_id, product.name as product_name, score
     `
 	params := map[string]interface{}{
-		"limit":       recquery.Limit,
-		"queryVector": queryVector,
+		"limit":           recquery.Limit,
+		"queryVector":     queryVector,
+		"score_threshold": recquery.Score,
 	}
 	results, _ := session.ExecuteWrite(ctx,
 		func(tx neo4j.ManagedTransaction) (any, error) {
@@ -571,6 +580,7 @@ func GetRecommendationsWooCommerce(c *gin.Context) {
 			records, _ := result.Collect(ctx)
 			return records, nil
 		})
+	fmt.Println(results)
 	var recommendations []map[string]any
 	for _, p := range results.([]*neo4j.Record) {
 		recommendations = append(recommendations, p.AsMap())

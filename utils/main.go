@@ -12,6 +12,7 @@ import (
 
 	"crypto/rand"
 	"encoding/hex"
+
 	"github.com/Huvinesh-Rajendran-12/neo4j-go-api/types"
 	"github.com/dgrijalva/jwt-go"
 	"github.com/jackc/pgx/v5"
@@ -114,15 +115,15 @@ func GetUserDataFromPg(id int) map[string]interface{} {
 	var latitude float64
 	var longitude float64
 	var allergy string
-	query := `SELECT 
-    id, 
-    COALESCE(email, 'default_email@example.com') AS email, 
-    COALESCE(name, 'Unknown') AS name, 
-    COALESCE(gender, 'Unknown') AS gender, 
-    COALESCE(date_of_birth, '1000-01-01') AS date_of_birth, 
-    COALESCE(latitude, 0.0) AS latitude, 
-    COALESCE(longitude, 0.0) AS longitude 
-    FROM users 
+	query := `SELECT
+    id,
+    COALESCE(email, 'default_email@example.com') AS email,
+    COALESCE(name, 'Unknown') AS name,
+    COALESCE(gender, 'Unknown') AS gender,
+    COALESCE(date_of_birth, '1000-01-01') AS date_of_birth,
+    COALESCE(latitude, 0.0) AS latitude,
+    COALESCE(longitude, 0.0) AS longitude
+    FROM users
     WHERE email = $1;`
 	err = conn.QueryRow(context.Background(), query, email).
 		Scan(&user_id, &email, &name, &gender, &date_of_birth, &latitude, &longitude)
@@ -177,15 +178,15 @@ func GetUserDataFromPgV2(email string) map[string]interface{} {
 	var latitude float64
 	var longitude float64
 	var allergy string
-	query := `SELECT 
-    id, 
-    COALESCE(email, 'default_email@example.com') AS email, 
-    COALESCE(name, 'Unknown') AS name, 
-    COALESCE(gender, 'Unknown') AS gender, 
-    COALESCE(date_of_birth, '1000-01-01') AS date_of_birth, 
-    COALESCE(latitude, 0.0) AS latitude, 
-    COALESCE(longitude, 0.0) AS longitude 
-    FROM users 
+	query := `SELECT
+    id,
+    COALESCE(email, 'default_email@example.com') AS email,
+    COALESCE(name, 'Unknown') AS name,
+    COALESCE(gender, 'Unknown') AS gender,
+    COALESCE(date_of_birth, '1000-01-01') AS date_of_birth,
+    COALESCE(latitude, 0.0) AS latitude,
+    COALESCE(longitude, 0.0) AS longitude
+    FROM users
     WHERE email = $1;`
 	err = conn.QueryRow(context.Background(), query, email).
 		Scan(&user_id, &email, &name, &gender, &date_of_birth, &latitude, &longitude)
@@ -211,7 +212,7 @@ func GetUserDataFromPgV2(email string) map[string]interface{} {
 	return data
 }
 
-func GetUserDiagnosisFromIc(ic_passport string) ([]string, error) {
+func GetUserDiagnosisFromIc(ic_passport string, n_diagnosis int) ([]string, error) {
 	host := os.Getenv("POSTGRES_HOST")
 	password := os.Getenv("POSTGRES_PASSWORD")
 	username := os.Getenv("POSTGRES_USER")
@@ -228,8 +229,8 @@ func GetUserDiagnosisFromIc(ic_passport string) ([]string, error) {
   FROM consultations c
   JOIN users u ON c.user_id = u.id
   WHERE u.ic = $1 AND u.ic != ''
-  ORDER BY c.created_at DESC LIMIT 1;`
-	rows, err := conn.Query(context.Background(), query, ic_passport)
+  ORDER BY c.created_at DESC LIMIT $2;`
+	rows, err := conn.Query(context.Background(), query, ic_passport, n_diagnosis)
 	if err != nil {
 		return nil, fmt.Errorf("query execution failed: %v", err)
 	}
@@ -326,8 +327,8 @@ func StoreUserData(userData map[string]interface{}) []map[string]interface{} {
 	defer session.Close(ctx)
 	query :=
 		`
-    CREATE(u:User {id: $id, name: $name, age: $age, email: $email, latitude: $latitude, longitude: $longitude, 
-    dob: date({year: $year, month: $month, day: $day})}), 
+    CREATE(u:User {id: $id, name: $name, age: $age, email: $email, latitude: $latitude, longitude: $longitude,
+    dob: date({year: $year, month: $month, day: $day})}),
     (u)-[:HAS_ALLERGY]->(a: Allergens {type: $allergy}), (u)-[:GENDER]->(g: Gender {type: $gender}) return u, a, g
     `
 	results, _ := session.ExecuteWrite(ctx,
