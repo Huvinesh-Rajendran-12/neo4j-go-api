@@ -43,15 +43,21 @@ type EmbeddingResp struct {
 	Embeddings []float64 `json:"embeddings"`
 }
 
-type WooCommerceProduct struct {
-	ID               int    `json:"id"`
-	Name             string `json:"name"`
-	Slug             string `json:"slug"`
-	Description      string `json:"description"`
-	ShortDescription string `json:"short_description"`
-	Image            []struct {
-		Src string `json:"src"`
-	} `json:"images"`
+type WooCommerceProductQuery struct {
+	SecretID string `json:"secret_id"`
+	Secret   string `json:"secret"`
+	Products []struct {
+		ID               int    `json:"id"`
+		Name             string `json:"name"`
+		Slug             string `json:"slug"`
+		Price            string `json:"price"`
+		RegularPrice     string `json:"regular_price"`
+		SalePrice        string `json:"sale_price"`
+		Description      string `json:"description"`
+		ShortDescription string `json:"short_description"`
+		Permalink        string `json:"permalink"`
+		FeaturedImage    string `json:"featured_src"`
+	} `json:"products"`
 }
 
 type WooCommerceRecommendationQuery struct {

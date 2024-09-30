@@ -288,8 +288,8 @@ func StoreWooCommerceProducts(c *gin.Context) {
 	defer response.Body.Close()
 
 	// 2. Decode the JSON response
-	var wooProducts []types.WooCommerceProduct
-	if err := json.NewDecoder(response.Body).Decode(&wooProducts); err != nil {
+	var payload types.WooCommerceProductQuery
+	if err := json.NewDecoder(response.Body).Decode(&payload); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to decode WooCommerce products: " + err.Error()}) // Include error details
 		return
 	}
@@ -304,9 +304,11 @@ func StoreWooCommerceProducts(c *gin.Context) {
 
 	session := driver.NewSession(ctx, neo4j.SessionConfig{DatabaseName: os.Getenv("NEO4J_DB")})
 	defer session.Close(ctx)
+	SecretID := payload.SecretID
+	Secret := payload.Secret
 
 	// 4. Store products in Neo4j
-	for _, product := range wooProducts {
+	for _, product := range payload.Products {
 		// ... (Get embeddings)
 		textToEmbed := product.Description + " " + product.ShortDescription
 		// Get embeddings
@@ -318,20 +320,30 @@ func StoreWooCommerceProducts(c *gin.Context) {
 		}
 		// Construct query with individual product parameters
 		query := `
+			MATCH(s:Site {secretID: $secretID, secret: $secret})
             CREATE(p:Product {
                 id: $id,
                 name: $name,
                 description: $description,
                 short_description: $short_description,
+                price: $price,
+                permalink: $permalink,
+                featured_image: $featured_image,
                 textEmbedding: $embeddings
             })
+			CREATE (p)-[:BELONGS_TO]->(s)
             RETURN p.id AS id
         `
 		params := map[string]interface{}{
+			"secretID":          SecretID,
+			"secret":            Secret,
 			"id":                product.ID,
 			"name":              product.Name,
 			"description":       product.Description,
 			"short_description": product.ShortDescription,
+			"price":             product.Price,
+			"permalink":         product.Permalink,
+			"featured_image":    product.FeaturedImage,
 			"embeddings":        productEmbeddings,
 		}
 
@@ -355,16 +367,12 @@ func StoreWooCommerceProducts(c *gin.Context) {
 func HandleAddProductWebhook(c *gin.Context) {
 	ctx := context.Background()
 
-	var payload types.WooCommerceProduct
+	var payload types.WooCommerceProductQuery
 
 	if err := c.ShouldBindJSON(&payload); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid webhook payload"})
 		return
 	}
-
-	// Get embeddings for the product
-	textToEmbed := payload.Description + " " + payload.ShortDescription
-	productEmbeddings := utils.GetEmbeddings(textToEmbed)
 
 	// Connect to Neo4j
 	driver, err := neo4j.NewDriverWithContext(os.Getenv("NEO4J_URI"), neo4j.BasicAuth(os.Getenv("NEO4J_USERNAME"), os.Getenv("NEO4J_PASSWORD"), ""))
@@ -377,48 +385,69 @@ func HandleAddProductWebhook(c *gin.Context) {
 
 	session := driver.NewSession(ctx, neo4j.SessionConfig{DatabaseName: os.Getenv("NEO4J_DB")})
 	defer session.Close(ctx)
+	SecretID := payload.SecretID
+	Secret := payload.Secret
 
 	// Construct the Cypher query
-	query := `
-    CREATE (p:Product {
-        id: $id,
-        name: $name,
-        description: $description,
-        short_description: $short_description,
-        textEmbedding: $embeddings
-    })
-    RETURN p.id AS id
-    `
-	params := map[string]interface{}{
-		"id":                payload.ID,
-		"name":              payload.Name,
-		"description":       payload.Description,
-		"short_description": payload.ShortDescription,
-		"embeddings":        productEmbeddings,
+	for _, product := range payload.Products {
+		// ... (Get embeddings)
+		textToEmbed := product.Description + " " + product.ShortDescription
+		// Get embeddings
+		productEmbeddings := utils.GetEmbeddings(textToEmbed)
+		// Check if embedding retrieval was successful
+		if len(productEmbeddings) == 0 {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to get embeddings for product"})
+			return
+		}
+		// Construct query with individual product parameters
+		query := `
+			MATCH(s:Site {secretID: $secretID, secret: $secret})
+            CREATE(p:Product {
+	            id: $id,
+	            name: $name,
+	            description: $description,
+	            short_description: $short_description,
+	            price: $price,
+	            permalink: $permalink,
+	            featured_image: $featured_image,
+	            textEmbedding: $embeddings
+            })
+			CREATE (p)-[:BELONGS_TO]->(s)
+            RETURN p.id AS id
+        `
+		params := map[string]interface{}{
+			"secretID":          SecretID,
+			"secret":            Secret,
+			"id":                product.ID,
+			"name":              product.Name,
+			"description":       product.Description,
+			"short_description": product.ShortDescription,
+			"price":             product.Price,
+			"permalink":         product.Permalink,
+			"featured_image":    product.FeaturedImage,
+			"embeddings":        productEmbeddings,
+		}
+
+		// Execute query for each product
+		result, err := session.Run(ctx, query, params)
+		if err != nil {
+			log.Printf("Error storing product %d: %s", product.ID, err.Error())
+			continue // Skip to next product if error occurs
+		}
+
+		// Optionally: Log created product ID
+		if result.Next(ctx) {
+			createdProductID, _ := result.Record().Get("id")
+			log.Printf("Created product with ID: %v", createdProductID)
+		}
 	}
 
-	// Execute the query
-	result, err := session.Run(ctx, query, params)
-	if err != nil {
-		log.Printf("Error creating product in Neo4j: %s", err)
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create product in database"})
-		return
-	}
-
-	// Optionally, log the created product ID or return it in the response
-	if result.Next(ctx) {
-		createdProductID, _ := result.Record().Get("id")
-		log.Printf("Created product with ID: %v", createdProductID)
-		c.JSON(http.StatusCreated, gin.H{"message": "Product created", "product_id": createdProductID})
-	} else {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Product creation failed"})
-	}
 }
 
 func HandleProductUpdateWebhook(c *gin.Context) {
 	ctx := context.Background()
 
-	var payload types.WooCommerceProduct
+	var payload types.WooCommerceProductQuery
 
 	if err := c.ShouldBindJSON(&payload); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid webhook payload"})
@@ -441,46 +470,68 @@ func HandleProductUpdateWebhook(c *gin.Context) {
 	session := driver.NewSession(ctx, neo4j.SessionConfig{DatabaseName: os.Getenv("NEO4J_DB")})
 	defer session.Close(ctx)
 
-	// Construct the Cypher query to update the product
-	query := `
-        MATCH (p:Product {id: $id})
-        SET p.name = $name,
-            p.description = $description,
-            p.short_description = $short_description,
-            p.textEmbedding = $embeddings
-        RETURN p
-    `
+	SecretID := payload.SecretID
+	Secret := payload.Secret
 
-	params := map[string]interface{}{
-		"id":                payload.ID,
-		"name":              payload.Name,
-		"description":       payload.Description,
-		"short_description": payload.ShortDescription,
-		"embeddings":        productEmbeddings,
-	}
+	// Construct the Cypher query
+	for _, product := range payload.Products {
+		// ... (Get embeddings)
+		textToEmbed := product.Description + " " + product.ShortDescription
+		// Get embeddings
+		productEmbeddings := utils.GetEmbeddings(textToEmbed)
+		// Check if embedding retrieval was successful
+		if len(productEmbeddings) == 0 {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to get embeddings for product"})
+			return
+		}
+		// Construct query with individual product parameters
+		query := `
+			MATCH (s:Site {id: $site_id})
+			MATCH (p:Product {id: $id})-[r:BELONGS_TO]->(s)
+			SET p = {
+			   id: $id,
+			   name: $name,
+			   description: $description,
+			   short_description: $short_description,
+			   price: $price,
+			   permalink: $permalink,
+			   featured_image: $featured_image,
+			   textEmbedding: $embeddings
+			}
+			RETURN p.id AS id, s.id AS site_id
+        `
+		params := map[string]interface{}{
+			"secretID":          SecretID,
+			"secret":            Secret,
+			"id":                product.ID,
+			"name":              product.Name,
+			"description":       product.Description,
+			"short_description": product.ShortDescription,
+			"price":             product.Price,
+			"permalink":         product.Permalink,
+			"featured_image":    product.FeaturedImage,
+			"embeddings":        productEmbeddings,
+		}
 
-	// Execute the query
-	result, err := session.Run(ctx, query, params)
-	if err != nil {
-		log.Printf("Error updating product in Neo4j: %s", err)
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update product in database"})
-		return
-	}
+		// Execute query for each product
+		result, err := session.Run(ctx, query, params)
+		if err != nil {
+			log.Printf("Error updating product %d: %s", product.ID, err.Error())
+			continue // Skip to next product if error occurs
+		}
 
-	// Optionally, log the updated product or return it in the response
-	if result.Next(ctx) {
-		updatedProduct, _ := result.Record().Get("p")
-		log.Printf("Updated product: %v", updatedProduct)
-		c.JSON(http.StatusOK, gin.H{"message": "Product updated", "product": updatedProduct})
-	} else {
-		c.JSON(http.StatusNotFound, gin.H{"error": "Product not found"})
+		// Optionally: Log created product ID
+		if result.Next(ctx) {
+			createdProductID, _ := result.Record().Get("id")
+			log.Printf("Updated product with ID: %v", createdProductID)
+		}
 	}
 }
 
 func HandleProductDeleteWebhook(c *gin.Context) {
 	ctx := context.Background()
 
-	var payload types.WooCommerceProduct
+	var payload types.WooCommerceProductQuery
 
 	if err := c.ShouldBindJSON(&payload); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid webhook payload"})
@@ -499,26 +550,28 @@ func HandleProductDeleteWebhook(c *gin.Context) {
 	session := driver.NewSession(ctx, neo4j.SessionConfig{DatabaseName: os.Getenv("NEO4J_DB")})
 	defer session.Close(ctx)
 
-	// Construct the Cypher query to delete the product
-	query := `
-        MATCH (p:Product {id: $id})
-        DETACH DELETE p
-    `
+	for _, product := range payload.Products {
+		// Construct the Cypher query to delete the product
+		query := `
+			MATCH (p:Product {id: $id})
+			DETACH DELETE p
+		`
 
-	params := map[string]interface{}{
-		"id": payload.ID,
+		params := map[string]interface{}{
+			"id": product.ID,
+		}
+
+		// Execute the query
+		_, err = session.Run(ctx, query, params)
+		if err != nil {
+			log.Printf("Error deleting product in Neo4j: %s", err)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to delete product in database"})
+			return
+		}
+
+		// Return success response
+		c.JSON(http.StatusOK, gin.H{"message": fmt.Sprintf("Product with ID %d deleted", payload.ID)})
 	}
-
-	// Execute the query
-	_, err = session.Run(ctx, query, params)
-	if err != nil {
-		log.Printf("Error deleting product in Neo4j: %s", err)
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to delete product in database"})
-		return
-	}
-
-	// Return success response
-	c.JSON(http.StatusOK, gin.H{"message": fmt.Sprintf("Product with ID %d deleted", payload.ID)})
 }
 
 func GetRecommendationsWooCommerce(c *gin.Context) {
